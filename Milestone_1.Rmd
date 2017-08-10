@@ -1,0 +1,134 @@
+---
+title: "Data Science Captone - Exploratory Analysis Milestone"
+author: "Pierre Baudin"
+date: "3 August 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+
+Around the world, people are spending an increasing amount of time on their mobile devices for email, social networking, banking and a whole range of other activities. But typing on mobile devices can be a serious pain. 
+
+In this first milestone of the data science specialization capstone project, exploration of the corpus and insight on the development of a predictive algorithm to help user typing will be presented.
+
+## Review Criteria
+
+The motivation for this project is to:
+
+1. Demonstrate that you've downloaded the data and have successfully loaded it in.
+2. Create a basic report of summary statistics about the data sets.
+3. Report any interesting findings that you amassed so far.
+4. Get feedback on your plans for creating a prediction algorithm and Shiny app. 
+
+## Exploratory Analysis
+
+### Basic Setup
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+setwd("~/Desktop/CapstoneSwiftKey")
+library(tm)
+library(ggplot2)
+library(dplyr)
+library(microbenchmark)
+# Note in this exploratory analysis report, the files have been downloaded prealably.
+```
+
+### Loading the data and basic information
+
+```{r}
+microbenchmark(
+        blogs_lg <- readLines(con = "./Corpora/en_US/en_US.blogs.txt", skipNul = TRUE) %>%
+        length()
+, times = 1)
+
+microbenchmark(
+        news_lg <- readLines(con = "./Corpora/en_US/en_US.news.txt", skipNul = TRUE) %>%
+        length()
+, times = 1)
+
+microbenchmark(
+        twitter_lg <- readLines(con = "./Corpora/en_US/en_US.twitter.txt", skipNul = TRUE) %>%
+        length()
+, times = 1)
+
+```
+
+The blog copora contains `r blogs_lg` lines, `r twitter_lg` lines in twitter data, and `r news_lg` lines in news data.
+
+The original data sets are quite large and take a lot of memory. Each of them to load take about 20 seconds (see session info).
+
+In order to continue the exploratory analysis without spending too much time on the processing, we will construct a dataset combining sampling from the three different corpora.
+
+For the ease of creaing this sampled corpora, the number of lines to read and add from each corpora is fixed at 20% starting for the begining of the files.
+
+*Notes:*
+
+For the purpose of modeling and prediction, this part of the data processing can be randomized and loop over to improve accuracy of the algorithm.
+
+```{r}
+nlines = as.integer(0.2 * blogs_lg)
+corp <- readLines(con = "./Corpora/en_US/en_US.blogs.txt", n = nlines, skipNul = TRUE)
+
+nlines = as.integer(0.2 * news_lg)
+corp <- c(corp, readLines(con = "./Corpora/en_US/en_US.news.txt", n = nlines, skipNul = TRUE))
+
+nlines = as.integer(0.2 * twitter_lg)
+corp <- c(corp, readLines(con = "./Corpora/en_US/en_US.twitter.txt", n = nlines, skipNul = TRUE))
+
+```
+
+### Data cleaning and processing
+
+The following steps are applied to the corpus:
+
+- Transform to lower case,
+- Remove punctuation,
+- Remove numbers
+- Remove special characters
+- Remove stop words
+- Stemm
+- Remove white space.
+
+```{r}
+# Create a vector source
+corp <- VectorSource(corp)
+# Create a volatile corpora (can take a few minutes)
+corp <- VCorpus(corp, readerControl = list(language = "en_US"))
+
+# Cleaning function for the Corpus
+clean_corpus <- function(corpus){
+        corpus <- tm_map(corpus, PlainTextDocument)
+        corpus <- tm_map(corpus, removeNumbers)
+        corpus <- tm_map(corpus, content_transformer(tolower))
+        corpus <- tm_map(corpus, stripWhitespace)
+        corpus <- tm_map(corpus, removePunctuation)
+        
+        removespecial <- function(x) gsub("[^[0-9A-Za-z]]"," ",x)
+        corpus <- tm_map(corpus, content_transformer(removespecial))
+        corpus<- tm_map(corpus,removeWords, stopwords("english"))
+        corpus <- tm_map(corpus, stemDocument, language = "english")
+        
+        return(corpus)
+}
+
+corpus <- Corpus(DirSource("./en_US/sample/"), readerControl = list(language="en_US"))
+
+# removing punctuation
+corpus<- tm_map(corpus,content_transformer(removePunctuation))
+# removing numbers
+corpus<- tm_map(corpus,content_transformer(removeNumbers))
+# removing special signs: [[:alnum:]] means [0-9A-Za-z]
+
+
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
